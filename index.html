@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Selecciona tu Ubicación</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      #map {
+        height: 400px;
+        width: 100%;
+      }
+
+      @media (max-width: 768px) {
+        #map {
+          height: 300px;
+        }
+      }
+
+      button {
+        font-size: 18px;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      h3,
+      p {
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Selecciona tu ubicación</h3>
+    <p>
+      El mapa se centrará automáticamente en tu ubicación actual. Si lo
+      prefieres, puedes seleccionar manualmente tocando en el mapa.
+    </p>
+    <div id="map"></div>
+    <form action="https://www.surveymonkey.com/r/tu_encuesta">
+      <!-- Campos ocultos para enviar datos a SurveyMonkey -->
+      <input type="hidden" id="coords" name="lat_lng" />
+      <input type="hidden" id="address" name="address" />
+      <input type="hidden" id="department" name="department" />
+      <input type="hidden" id="city" name="city" />
+      <input type="hidden" id="neighborhood" name="neighborhood" />
+      <div style="text-align: center; margin-top: 10px">
+        <button type="submit">Guardar ubicación y continuar</button>
+      </div>
+    </form>
+
+    <script>
+      const map = L.map("map").setView([0, 0], 2);
+
+      // Agregar el mapa base de OpenStreetMap
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      let marker;
+
+      // Función para centrar el mapa en la ubicación actual
+      function setUserLocation() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              const userLatLng = [latitude, longitude];
+
+              // Centrar el mapa en la ubicación detectada
+              map.setView(userLatLng, 15);
+
+              // Colocar un marcador en la ubicación actual
+              marker = L.marker(userLatLng)
+                .addTo(map)
+                .bindPopup("Tu ubicación actual")
+                .openPopup();
+
+              // Obtener los datos de la ubicación con Nominatim
+              getLocationDetails(latitude, longitude);
+            },
+            () => {
+              alert(
+                "No pudimos obtener tu ubicación. Selecciona manualmente en el mapa."
+              );
+            }
+          );
+        } else {
+          alert("La geolocalización no es soportada en este navegador.");
+        }
+      }
+
+      // Llamar a la función de geolocalización al cargar la página
+      setUserLocation();
+
+      // Agregar evento para seleccionar manualmente una ubicación
+      map.on("click", function (e) {
+        const { lat, lng } = e.latlng;
+
+        // Si ya existe un marcador, eliminarlo
+        if (marker) {
+          map.removeLayer(marker);
+        }
+
+        // Colocar un marcador en la ubicación seleccionada
+        marker = L.marker([lat, lng]).addTo(map);
+
+        // Obtener los datos de la ubicación con Nominatim
+        getLocationDetails(lat, lng);
+      });
+
+      // Función para obtener datos detallados de la ubicación
+      function getLocationDetails(lat, lng) {
+        fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            const address = data.display_name || "Dirección no disponible";
+            const department = data.address.state || "No disponible";
+            const city =
+              data.address.city ||
+              data.address.town ||
+              data.address.village ||
+              "No disponible";
+            const neighborhood =
+              data.address.suburb ||
+              data.address.neighbourhood ||
+              "No disponible";
+
+            // Llenar los campos ocultos del formulario
+            document.getElementById("coords").value = `${lat}, ${lng}`;
+            document.getElementById("address").value = address;
+            document.getElementById("department").value = department;
+            document.getElementById("city").value = city;
+            document.getElementById("neighborhood").value = neighborhood;
+
+            console.log(
+              `Departamento: ${department}, Ciudad: ${city}, Barrio: ${neighborhood}`
+            );
+          })
+          .catch((error) => {
+            console.error(
+              "Error al obtener los detalles de la ubicación:",
+              error
+            );
+            alert(
+              "No se pudieron obtener los detalles de la ubicación. Intenta nuevamente."
+            );
+          });
+      }
+    </script>
+  </body>
+</html>
